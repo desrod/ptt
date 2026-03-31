@@ -1,8 +1,8 @@
 # Ubuntu Package to Team Lookup
 
-Just a quick shell utility I wrote that queries Ubuntu's package/team ownership mapping and can tell you which team owns a package, or which package is owned by a team, so you know who to reach out to when you need support or assistance.
+A command-line utility I wrote that queries Ubuntu's package/team ownership mapping and can tell you which team owns a package, or which packages a team owns, so you know who to reach out to when you need support or assistance.
 
-#### Questions this answers: 
+#### Questions this answers:
 
 - Who owns this specific package?
 - What packages does this team own?
@@ -20,21 +20,27 @@ http://reports.qa.ubuntu.com/m-r-package-team-mapping.json
 
 I regularly need to find out which team owns a package (or vice-versa) when filing bugs or asking questions about issues filed on Launchpad. grep'ing JSON by hand gets old quickly and isn't a good use of the file format. This wraps that dataset in a tiny Python script with readable output.
 
-The goal was to keep this clean, simple, minimal, no configuration or state left behind, and for the code to be immediately readable. 
+The goal was to keep this clean, simple, minimal, no configuration or state left behind, and for the code to be immediately readable.
 
 ------------------------------------------------------------------------
 
 ## Requirements
 
-- Python 3.x or later
+- Python 3.8 or later
 - click
 - requests
-- terminaltables
+- rich
 
-Install dependencies, either using your package management tools or just use `pip` in a virtualenv or `uv` runtime: 
+Install dependencies, either using your package management tools or just use `pip` in a virtualenv or `uv` runtime:
 
 ``` bash
-pip install click requests terminaltables
+pip install click requests rich
+```
+
+Or install the tool directly as a package (provides a `package-to-team` entry point):
+
+``` bash
+pip install .
 ```
 
 ------------------------------------------------------------------------
@@ -42,18 +48,20 @@ pip install click requests terminaltables
 ## Usage
 
 ``` bash
-$ ./package-to-team.py
-Usage: package-to-team.py [OPTIONS]
+$ ./package_to_team.py
+Usage: package_to_team.py [OPTIONS]
 
 Options:
-  -p, --package TEXT  Search the team who owns <package>
-  -t, --team TEXT     List all packages owned by <team>
+  -p, --package TEXT  Search the team who owns <package> (repeatable)
+  -t, --team TEXT     List all packages owned by <team> (repeatable)
   --all               Show everything
   --teams             Dump all teams' names
   --help              Show this message and exit.
 ```
 
-Only one option should be used at a time to avoid confusion. I've added guards in the script to prevent clobbering multiple options being passed at once.
+Only one option group should be used at a time. The script enforces this and will exit with an error if multiple conflicting options are passed. Both `--package` and `--team` can be repeated to query multiple values in a single call.
+
+The script exits with code `1` if any query produces no results, making it safe to use in shell scripts and pipelines.
 
 ------------------------------------------------------------------------
 
@@ -61,15 +69,16 @@ Only one option should be used at a time to avoid confusion. I've added guards i
 
 ### --package, -p
 
-Search for packages whose names contain a substring and show owning team(s)
+Search for packages whose names contain a substring and show owning team(s). Repeat the flag to query multiple packages in one call.
 
 ``` bash
-./package-to-team.py --package cloud-init
+./package_to_team.py --package cloud-init
+./package_to_team.py --package cloud-init --package snapd
 ```
 
 Multiple matches output:
 
-    $ ./package-to-team.py --package cloud-init
+    $ ./package_to_team.py --package cloud-init
 
     ┌Matches for "cloud-init"───────────────┐
     │ Package               │ Team          │
@@ -86,15 +95,16 @@ No matches:
 
 ### --team, -t
 
-Search for team names and list their packages
+Search for team names and list their packages. Repeat the flag to query multiple teams in one call.
 
 ``` bash
-./package-to-team.py --team foundations
+./package_to_team.py --team foundations
+./package_to_team.py --team foundations --team server
 ```
 
 Single match output:
 
-    $ ./package-to-team.py --team foundations
+    $ ./package_to_team.py --team foundations
 
     ┌Packages owned by foundations-bugs─┐
     │ Package                           │
@@ -109,7 +119,7 @@ Single match output:
 
 Multiple matching teams:
 
-    $ ./package-to-team.py --team cloud
+    $ ./package_to_team.py --team cloud
 
     ┌───────────────────────────────┐
     │ Package                       │
@@ -131,12 +141,12 @@ No matches:
 Dump all team names (one per line)
 
 ``` bash
-./package-to-team.py --teams
+./package_to_team.py --teams
 ```
 
 Example output:
 
-    $ ./package-to-team.py --teams
+    $ ./package_to_team.py --teams
     canonical-hw-cert
     canonical-mainstream
     canonical-support
@@ -153,12 +163,12 @@ Example output:
 Show the entire mapping
 
 ``` bash
-./package-to-team.py --all
+./package_to_team.py --all
 ```
 
 Output:
 
-    $ ./package-to-team.py --all
+    $ ./package_to_team.py --all
     
     ┌────────────────────────┬─────────────────────────────────────────────────┐
     │ Team                   │ Packages                                        │
